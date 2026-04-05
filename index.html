@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Human Protocol - Connecté</title>
+    <style>
+        :root { --bg: #000; --card: #121212; --accent: #00FF41; --ai: #007AFF; --text: #fff; --gray: #222; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        .app-container { width: 100%; max-width: 385px; height: 90vh; background: var(--card); border-radius: 40px; border: 8px solid #222; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .view { display: none; flex-direction: column; height: 100%; padding-bottom: 80px; overflow-y: auto; }
+        .view.active { display: flex; }
+        .mode-selector { padding: 15px; display: flex; gap: 10px; background: #000; border-bottom: 1px solid var(--gray); }
+        .btn-mode { flex: 1; padding: 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 900; cursor: pointer; border: 2px solid var(--gray); text-align: center; color: #555; transition: 0.3s; }
+        .btn-mode.active-ai { border-color: var(--ai); color: var(--ai); background: rgba(0, 122, 255, 0.1); }
+        .btn-mode.active-human { border-color: var(--accent); color: var(--accent); background: rgba(0, 255, 65, 0.1); }
+        #chat-content { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+        .bubble { max-width: 85%; padding: 12px; border-radius: 18px; font-size: 0.85rem; line-height: 1.4; }
+        .msg-me { align-self: flex-end; background: #fff; color: #000; }
+        .msg-ai { align-self: flex-start; background: rgba(0, 122, 255, 0.1); border: 1px solid var(--ai); }
+        .msg-human { align-self: flex-start; background: rgba(0, 255, 65, 0.1); border: 1px solid var(--accent); }
+        .input-area { padding: 20px; background: #000; display: flex; gap: 10px; border-top: 1px solid var(--gray); }
+        input { flex: 1; background: #111; border: 1px solid var(--gray); color: white; padding: 12px; border-radius: 15px; outline: none; }
+        .tab-bar { position: absolute; bottom: 0; width: 100%; height: 75px; background: #000; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid var(--gray); }
+        .tab-btn { color: #444; font-size: 0.6rem; font-weight: bold; text-align: center; cursor: pointer; }
+        .tab-btn.active { color: #fff; }
+        .mission-card { background: #1a1a1a; padding: 15px; border-radius: 15px; margin: 10px 20px; border-left: 4px solid var(--accent); }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="mode-selector">
+            <div id="ai-tab" class="btn-mode active-ai" onclick="switchMode('AI')">MODE IA</div>
+            <div id="human-tab" class="btn-mode" onclick="switchMode('HUMAN')">MODE HUMAIN</div>
+        </div>
+
+        <div id="v-chat" class="view active">
+            <div id="chat-content"></div>
+            <div class="input-area">
+                <input type="text" id="mainInput" placeholder="Pose ta question...">
+                <button onclick="processMessage()" style="background:#fff; border:none; border-radius:15px; padding:10px 15px; font-weight:bold;">OK</button>
+            </div>
+        </div>
+
+        <div id="v-missions" class="view">
+            <h3 style="color: var(--accent); font-size: 0.8rem; padding: 20px;">MISSIONS EN TEMPS RÉEL</h3>
+            <div id="mission-list"></div>
+        </div>
+
+        <div class="tab-bar">
+            <div class="tab-btn active" onclick="nav('chat', this)">CHAT</div>
+            <div class="tab-btn" onclick="nav('missions', this)">MISSIONS</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfuKPT9iSB-tpCAP3pCrRp98NlzOcNHG8",
+            authDomain: "human-protocol-67c66.firebaseapp.com",
+            projectId: "human-protocol-67c66",
+            storageBucket: "human-protocol-67c66.firebasestorage.app",
+            messagingSenderId: "973157410623",
+            appId: "1:973157410623:web:528f020e7c5793e5d4158a"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- LOGIQUE DE L'APP ---
+        window.mode = 'AI';
+
+        window.switchMode = (newMode) => {
+            window.mode = newMode;
+            document.getElementById('ai-tab').className = (mode === 'AI') ? 'btn-mode active-ai' : 'btn-mode';
+            document.getElementById('human-tab').className = (mode === 'HUMAN') ? 'btn-mode active-human' : 'btn-mode';
+        };
+
+        window.nav = (viewId, el) => {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('v-' + viewId).classList.add('active');
+            document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+        };
+
+        window.processMessage = async () => {
+            const input = document.getElementById('mainInput');
+            const chat = document.getElementById('chat-content');
+            if (!input.value.trim()) return;
+
+            const text = input.value;
+            addBubble(text, 'msg-me');
+
+            if (window.mode === 'AI') {
+                setTimeout(() => addBubble("[IA] : Réponse générée par l'algorithme.", 'msg-ai'), 800);
+            } else {
+                // ENVOI À FIREBASE
+                await addDoc(collection(db, "questions"), {
+                    text: text,
+                    timestamp: new Date()
+                });
+                setTimeout(() => addBubble("[SYSTÈME] : Question envoyée aux humains.", 'msg-human'), 500);
+            }
+            input.value = "";
+        };
+
+        function addBubble(text, className) {
+            const div = document.createElement('div');
+            div.className = 'bubble ' + className;
+            div.innerText = text;
+            document.getElementById('chat-content').appendChild(div);
+        }
+
+        // --- LECTURE DES MISSIONS EN TEMPS RÉEL ---
+        const q = query(collection(db, "questions"), orderBy("timestamp", "desc"));
+        onSnapshot(q, (snapshot) => {
+            const missionList = document.getElementById('mission-list');
+            missionList.innerHTML = "";
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                const card = document.createElement('div');
+                card.className = 'mission-card';
+                card.innerHTML = `<div style="font-size:0.85rem;">"${data.text}"</div>
+                                 <button style="background:var(--accent); border:none; margin-top:10px; padding:5px; border-radius:5px; font-weight:bold; font-size:0.6rem;">RÉPONDRE (+100 BP)</button>`;
+                missionList.appendChild(card);
+            });
+        });
+    </script>
+</body>
+</html>
