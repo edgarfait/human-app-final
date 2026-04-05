@@ -44,7 +44,7 @@
         </div>
 
         <div id="v-missions" class="view">
-            <h3 style="color: var(--accent); font-size: 0.8rem; padding: 20px;">MISSIONS EN TEMPS RÉEL</h3>
+            <h3 style="color: var(--accent); font-size: 0.8rem; padding: 20px;">MISSIONS DISPONIBLES</h3>
             <div id="mission-list"></div>
         </div>
 
@@ -56,7 +56,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDfuKPT9iSB-tpCAP3pCrRp98NlzOcNHG8",
@@ -70,39 +70,38 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- LOGIQUE DE L'APP ---
         window.mode = 'AI';
+        let myLastQuestionId = null;
 
-        window.switchMode = (newMode) => {
-            window.mode = newMode;
-            document.getElementById('ai-tab').className = (mode === 'AI') ? 'btn-mode active-ai' : 'btn-mode';
-            document.getElementById('human-tab').className = (mode === 'HUMAN') ? 'btn-mode active-human' : 'btn-mode';
+        window.switchMode = (m) => {
+            window.mode = m;
+            document.getElementById('ai-tab').className = (m === 'AI') ? 'btn-mode active-ai' : 'btn-mode';
+            document.getElementById('human-tab').className = (m === 'HUMAN') ? 'btn-mode active-human' : 'btn-mode';
         };
 
-        window.nav = (viewId, el) => {
+        window.nav = (id, el) => {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.getElementById('v-' + viewId).classList.add('active');
+            document.getElementById('v-' + id).classList.add('active');
             document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
             el.classList.add('active');
         };
 
         window.processMessage = async () => {
             const input = document.getElementById('mainInput');
-            const chat = document.getElementById('chat-content');
             if (!input.value.trim()) return;
-
             const text = input.value;
             addBubble(text, 'msg-me');
 
             if (window.mode === 'AI') {
-                setTimeout(() => addBubble("[IA] : Réponse générée par l'algorithme.", 'msg-ai'), 800);
+                setTimeout(() => addBubble("[IA] : Réponse automatique simulée.", 'msg-ai'), 800);
             } else {
-                // ENVOI À FIREBASE
-                await addDoc(collection(db, "questions"), {
+                const docRef = await addDoc(collection(db, "questions"), {
                     text: text,
                     timestamp: new Date()
                 });
-                setTimeout(() => addBubble("[SYSTÈME] : Question envoyée aux humains.", 'msg-human'), 500);
+                myLastQuestionId = docRef.id;
+                addBubble("[SYSTÈME] : Question envoyée au réseau...", 'msg-human');
+                listenForAnswers(myLastQuestionId);
             }
             input.value = "";
         };
@@ -111,23 +110,50 @@
             const div = document.createElement('div');
             div.className = 'bubble ' + className;
             div.innerText = text;
-            document.getElementById('chat-content').appendChild(div);
+            const chat = document.getElementById('chat-content');
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
         }
 
-        // --- LECTURE DES MISSIONS EN TEMPS RÉEL ---
-        const q = query(collection(db, "questions"), orderBy("timestamp", "desc"));
-        onSnapshot(q, (snapshot) => {
-            const missionList = document.getElementById('mission-list');
-            missionList.innerHTML = "";
-            snapshot.forEach((doc) => {
-                const data = doc.data();
+        function listenForAnswers(qId) {
+            const qResp = query(collection(db, "reponses"), where("questionId", "==", qId));
+            onSnapshot(qResp, (snap) => {
+                snap.docChanges().forEach((change) => {
+                    if (change.type === "added") {
+                        addBubble("[HUMAIN] : " + change.doc.data().text, 'msg-human');
+                    }
+                });
+            });
+        }
+
+        const qMissions = query(collection(db, "questions"), orderBy("timestamp", "desc"));
+        onSnapshot(qMissions, (snap) => {
+            const list = document.getElementById('mission-list');
+            list.innerHTML = "";
+            snap.forEach((doc) => {
                 const card = document.createElement('div');
                 card.className = 'mission-card';
-                card.innerHTML = `<div style="font-size:0.85rem;">"${data.text}"</div>
-                                 <button style="background:var(--accent); border:none; margin-top:10px; padding:5px; border-radius:5px; font-weight:bold; font-size:0.6rem;">RÉPONDRE (+100 BP)</button>`;
-                missionList.appendChild(card);
+                card.innerHTML = `
+                    <div style="font-size:0.8rem;">"${doc.data().text}"</div>
+                    <button onclick="window.reply('${doc.id}', '${doc.data().text.replace(/'/g, "\\'")}')" 
+                            style="background:var(--accent); border:none; margin-top:10px; padding:8px; border-radius:8px; font-weight:bold; font-size:0.6rem; cursor:pointer; width:100%;">
+                        RÉPONDRE (+100 BP)
+                    </button>`;
+                list.appendChild(card);
             });
         });
+
+        window.reply = async (id, originalText) => {
+            const resp = prompt(`Ta réponse pour : "${originalText}"`);
+            if (resp) {
+                await addDoc(collection(db, "reponses"), {
+                    questionId: id,
+                    text: resp,
+                    timestamp: new Date()
+                });
+                alert("Réponse envoyée !");
+            }
+        };
     </script>
 </body>
 </html>
