@@ -3,54 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Human Protocol - Connecté</title>
+    <title>Human Protocol - Flow</title>
     <style>
-        :root { --bg: #000; --card: #121212; --accent: #00FF41; --ai: #007AFF; --text: #fff; --gray: #222; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-        .app-container { width: 100%; max-width: 385px; height: 90vh; background: var(--card); border-radius: 40px; border: 8px solid #222; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        .view { display: none; flex-direction: column; height: 100%; padding-bottom: 80px; overflow-y: auto; }
+        :root { --bg: #000; --card: #050505; --accent: #00FF41; --ai: #007AFF; --text: #fff; --gray: #111; }
+        body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        
+        .app-container { width: 100%; max-width: 385px; height: 92vh; background: var(--card); border-radius: 45px; border: 2px solid var(--gray); display: flex; flex-direction: column; overflow: hidden; position: relative; transition: 0.5s; }
+        .app-container.mode-human { border-color: var(--accent); box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.05); }
+        .app-container.mode-ai { border-color: var(--ai); box-shadow: inset 0 0 20px rgba(0, 122, 255, 0.05); }
+        
+        .header { padding: 25px 20px; display: flex; justify-content: space-between; align-items: center; background: #000; z-index: 10; }
+        .identity-label { font-size: 0.6rem; letter-spacing: 2px; font-weight: 900; opacity: 0.7; }
+        
+        /* Score et Animation */
+        .score-wrapper { position: relative; }
+        #score-badge { cursor: pointer; font-weight: bold; font-size: 0.75rem; color: #fff; background: #111; padding: 8px 15px; border-radius: 30px; border: 1px solid #333; transition: 0.3s; }
+        .floating-points { position: absolute; top: -20px; right: 0; font-size: 0.8rem; font-weight: bold; animation: floatUp 1s ease-out forwards; pointer-events: none; }
+        @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-30px); opacity: 0; } }
+
+        .view { display: none; flex-direction: column; height: 100%; padding-bottom: 90px; overflow-y: auto; }
         .view.active { display: flex; }
-        .mode-selector { padding: 15px; display: flex; gap: 10px; background: #000; border-bottom: 1px solid var(--gray); }
-        .btn-mode { flex: 1; padding: 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 900; cursor: pointer; border: 2px solid var(--gray); text-align: center; color: #555; transition: 0.3s; }
-        .btn-mode.active-ai { border-color: var(--ai); color: var(--ai); background: rgba(0, 122, 255, 0.1); }
-        .btn-mode.active-human { border-color: var(--accent); color: var(--accent); background: rgba(0, 255, 65, 0.1); }
-        #chat-content { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
-        .bubble { max-width: 85%; padding: 12px; border-radius: 18px; font-size: 0.85rem; line-height: 1.4; }
-        .msg-me { align-self: flex-end; background: #fff; color: #000; }
-        .msg-ai { align-self: flex-start; background: rgba(0, 122, 255, 0.1); border: 1px solid var(--ai); }
-        .msg-human { align-self: flex-start; background: rgba(0, 255, 65, 0.1); border: 1px solid var(--accent); }
+
+        #chat-content { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; scroll-behavior: smooth; }
+        
+        /* Bulles : IA à GAUCHE, HUMAIN à DROITE */
+        .bubble { max-width: 75%; padding: 12px 16px; border-radius: 20px; font-size: 0.8rem; line-height: 1.4; position: relative; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .msg-ai { align-self: flex-start; background: rgba(0, 122, 255, 0.1); border: 1px solid var(--ai); color: var(--ai); border-bottom-left-radius: 2px; }
+        .msg-human { align-self: flex-end; background: rgba(0, 255, 65, 0.1); border: 1px solid var(--accent); color: var(--accent); border-bottom-right-radius: 2px; text-align: right; }
+        .msg-me { align-self: flex-end; background: #fff; color: #000; border-bottom-right-radius: 2px; font-weight: bold; }
+
         .input-area { padding: 20px; background: #000; display: flex; gap: 10px; border-top: 1px solid var(--gray); }
-        input { flex: 1; background: #111; border: 1px solid var(--gray); color: white; padding: 12px; border-radius: 15px; outline: none; }
+        input { flex: 1; background: #080808; border: 1px solid #222; color: white; padding: 12px; border-radius: 15px; outline: none; font-family: monospace; font-size: 0.8rem; }
+        .btn-send { background: transparent; border: 1px solid #333; border-radius: 15px; padding: 10px; cursor: pointer; transition: 0.3s; }
+
         .tab-bar { position: absolute; bottom: 0; width: 100%; height: 75px; background: #000; display: flex; justify-content: space-around; align-items: center; border-top: 1px solid var(--gray); }
-        .tab-btn { color: #444; font-size: 0.6rem; font-weight: bold; text-align: center; cursor: pointer; }
+        .tab-btn { color: #444; font-size: 0.55rem; font-weight: bold; cursor: pointer; letter-spacing: 1px; }
         .tab-btn.active { color: #fff; }
-        .mission-card { background: #1a1a1a; padding: 15px; border-radius: 15px; margin: 10px 20px; border-left: 4px solid var(--accent); }
+
+        .mission-card { background: #030303; padding: 20px; border-radius: 20px; margin: 10px 20px; border: 1px solid #111; }
+        .mission-btn { background: none; border: 1px solid #333; color: #fff; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 0.6rem; cursor: pointer; width: 100%; margin-top: 10px; transition: 0.3s; }
     </style>
 </head>
 <body>
 
-    <div class="app-container">
-        <div class="mode-selector">
-            <div id="ai-tab" class="btn-mode active-ai" onclick="switchMode('AI')">MODE IA</div>
-            <div id="human-tab" class="btn-mode" onclick="switchMode('HUMAN')">MODE HUMAIN</div>
+    <div id="main-container" class="app-container mode-ai">
+        <div class="header">
+            <div id="identity-text" class="identity-label">PROTOCOL_IA</div>
+            <div class="score-wrapper">
+                <div id="score-badge" onclick="toggleIdentity()">0 BP</div>
+                <div id="points-anim-container"></div>
+            </div>
         </div>
 
         <div id="v-chat" class="view active">
             <div id="chat-content"></div>
             <div class="input-area">
-                <input type="text" id="mainInput" placeholder="Pose ta question...">
-                <button onclick="processMessage()" style="background:#fff; border:none; border-radius:15px; padding:10px 15px; font-weight:bold;">OK</button>
+                <input type="text" id="mainInput" placeholder="Saisir data...">
+                <button id="send-btn" class="btn-send" onclick="processMessage()">⚡</button>
             </div>
         </div>
 
         <div id="v-missions" class="view">
-            <h3 style="color: var(--accent); font-size: 0.8rem; padding: 20px;">MISSIONS DISPONIBLES</h3>
-            <div id="mission-list"></div>
+            <div id="mission-list" style="margin-top: 20px;"></div>
         </div>
 
         <div class="tab-bar">
-            <div class="tab-btn active" onclick="nav('chat', this)">CHAT</div>
-            <div class="tab-btn" onclick="nav('missions', this)">MISSIONS</div>
+            <div class="tab-btn active" onclick="nav('chat', this)">COMM_LINK</div>
+            <div class="tab-btn" onclick="nav('missions', this)">JOB_BOARD</div>
         </div>
     </div>
 
@@ -70,13 +91,43 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        window.mode = 'AI';
-        let myLastQuestionId = null;
+        let currentMode = localStorage.getItem('user_mode') || 'AI';
+        let scores = { AI: parseInt(localStorage.getItem('score_AI')) || 0, HUMAN: parseInt(localStorage.getItem('score_HUMAN')) || 0 };
 
-        window.switchMode = (m) => {
-            window.mode = m;
-            document.getElementById('ai-tab').className = (m === 'AI') ? 'btn-mode active-ai' : 'btn-mode';
-            document.getElementById('human-tab').className = (m === 'HUMAN') ? 'btn-mode active-human' : 'btn-mode';
+        const refreshUI = () => {
+            const container = document.getElementById('main-container');
+            const badge = document.getElementById('score-badge');
+            const sendBtn = document.getElementById('send-btn');
+            
+            container.className = `app-container mode-${currentMode.toLowerCase()}`;
+            document.getElementById('identity-text').innerText = `PROTOCOL_${currentMode}`;
+            document.getElementById('identity-text').style.color = currentMode === 'AI' ? '#007AFF' : '#00FF41';
+            badge.innerText = `${scores[currentMode]} BP`;
+            badge.style.borderColor = currentMode === 'AI' ? '#007AFF' : '#00FF41';
+            sendBtn.style.borderColor = currentMode === 'AI' ? '#007AFF' : '#00FF41';
+            sendBtn.style.color = currentMode === 'AI' ? '#007AFF' : '#00FF41';
+        };
+
+        window.toggleIdentity = () => {
+            currentMode = (currentMode === 'AI') ? 'HUMAN' : 'AI';
+            localStorage.setItem('user_mode', currentMode);
+            refreshUI();
+        };
+
+        window.addPoints = (pts) => {
+            scores[currentMode] += pts;
+            localStorage.setItem(`score_${currentMode}`, scores[currentMode]);
+            
+            // Animation éphémère
+            const container = document.getElementById('points-anim-container');
+            const anim = document.createElement('div');
+            anim.className = 'floating-points';
+            anim.innerText = `+${pts}`;
+            anim.style.color = currentMode === 'AI' ? '#007AFF' : '#00FF41';
+            container.appendChild(anim);
+            setTimeout(() => anim.remove(), 1000);
+            
+            refreshUI();
         };
 
         window.nav = (id, el) => {
@@ -90,18 +141,17 @@
             const input = document.getElementById('mainInput');
             if (!input.value.trim()) return;
             const text = input.value;
+            
+            // Bulle locale (toujours à droite car c'est "Moi")
             addBubble(text, 'msg-me');
 
-            if (window.mode === 'AI') {
-                setTimeout(() => addBubble("[IA] : Réponse automatique simulée.", 'msg-ai'), 800);
+            if (currentMode === 'AI') {
+                setTimeout(() => addBubble("DATA_ANALYSIS: SUCCESS.", 'msg-ai'), 600);
+                window.addPoints(10); // Petit gain pour participation
             } else {
-                const docRef = await addDoc(collection(db, "questions"), {
-                    text: text,
-                    timestamp: new Date()
-                });
-                myLastQuestionId = docRef.id;
-                addBubble("[SYSTÈME] : Question envoyée au réseau...", 'msg-human');
-                listenForAnswers(myLastQuestionId);
+                const docRef = await addDoc(collection(db, "questions"), { text: text, sender: 'HUMAN', timestamp: new Date() });
+                listenForAnswers(docRef.id);
+                window.addPoints(50); // Point pour avoir posé une question
             }
             input.value = "";
         };
@@ -120,7 +170,7 @@
             onSnapshot(qResp, (snap) => {
                 snap.docChanges().forEach((change) => {
                     if (change.type === "added") {
-                        addBubble("[HUMAIN] : " + change.doc.data().text, 'msg-human');
+                        addBubble(change.doc.data().text, 'msg-ai');
                     }
                 });
             });
@@ -134,26 +184,23 @@
                 const card = document.createElement('div');
                 card.className = 'mission-card';
                 card.innerHTML = `
-                    <div style="font-size:0.8rem;">"${doc.data().text}"</div>
-                    <button onclick="window.reply('${doc.id}', '${doc.data().text.replace(/'/g, "\\'")}')" 
-                            style="background:var(--accent); border:none; margin-top:10px; padding:8px; border-radius:8px; font-weight:bold; font-size:0.6rem; cursor:pointer; width:100%;">
-                        RÉPONDRE (+100 BP)
+                    <div style="font-size:0.75rem; color:#eee;">"${doc.data().text}"</div>
+                    <button class="mission-btn" onclick="window.reply('${doc.id}', '${doc.data().text.replace(/'/g, "\\'")}')">
+                        INTERCEPTER
                     </button>`;
                 list.appendChild(card);
             });
         });
 
         window.reply = async (id, originalText) => {
-            const resp = prompt(`Ta réponse pour : "${originalText}"`);
+            const resp = prompt(`RÉPONDRE :`);
             if (resp) {
-                await addDoc(collection(db, "reponses"), {
-                    questionId: id,
-                    text: resp,
-                    timestamp: new Date()
-                });
-                alert("Réponse envoyée !");
+                await addDoc(collection(db, "reponses"), { questionId: id, text: resp, timestamp: new Date() });
+                window.addPoints(100);
             }
         };
+
+        refreshUI();
     </script>
 </body>
 </html>
