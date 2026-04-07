@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Human Protocol - Matchmaking</title>
+    <title>Human Protocol - Sync V18</title>
     <style>
-        :root { --bg: #000; --hu: #34C759; --ai: #007AFF; --gray: #1C1C1E; --card: #111; }
+        :root { --bg: #000; --hu: #34C759; --ai: #007AFF; --gray: #1C1C1E; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: white; font-family: -apple-system, sans-serif; margin: 0; height: 100vh; overflow: hidden; }
 
@@ -15,26 +15,27 @@
         .view { display: none; height: 100vh; flex-direction: column; padding-top: 110px; padding-bottom: 90px; overflow-y: auto; }
         .view.active { display: flex; }
 
-        /* --- ÉCRAN DE SCAN --- */
+        /* SCAN UI */
         .scan-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; }
-        .radar { width: 150px; height: 150px; border-radius: 50%; border: 2px solid var(--ai); position: relative; margin-bottom: 30px; display: flex; align-items: center; justify-content: center; }
-        .radar::after { content: ''; position: absolute; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--ai); animation: spin 2s linear infinite; }
+        .radar { width: 120px; height: 120px; border-radius: 50%; border: 2px solid #333; position: relative; margin-bottom: 30px; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+        .radar.scanning::after { content: ''; position: absolute; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: inherit; animation: spin 2s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .scan-btn { background: var(--ai); color: white; border: none; padding: 15px 40px; border-radius: 30px; font-weight: bold; font-size: 1rem; cursor: pointer; transition: 0.3s; }
-        .scan-btn.active { background: #555; }
+        
+        .scan-btn { background: #333; color: white; border: none; padding: 15px 40px; border-radius: 30px; font-weight: bold; cursor: pointer; }
 
-        /* --- CHAT PRIVÉ --- */
+        /* CHAT UI */
         #chat-content { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
         .bubble { max-width: 80%; padding: 12px 16px; border-radius: 20px; font-size: 0.95rem; }
         .msg-AI { align-self: flex-start; background: #1a1a1c; border: 1px solid var(--ai); color: var(--ai); border-bottom-left-radius: 4px; }
         .msg-HUMAN { align-self: flex-end; background: var(--hu); color: white; border-bottom-right-radius: 4px; }
         
-        .input-container { position: fixed; bottom: 85px; width: 100%; background: #000; padding: 10px 15px; display: flex; align-items: center; gap: 10px; display: none; }
+        .input-container { position: fixed; bottom: 85px; width: 100%; background: #000; padding: 10px 15px; display: none; align-items: center; gap: 10px; border-top: 0.5px solid #222; }
         .input-container.active { display: flex; }
 
-        /* --- NAV --- */
-        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 85px; background: rgba(10,10,10,0.95); backdrop-filter: blur(20px); display: flex; justify-content: space-around; align-items: center; padding-bottom: 25px; border-top: 0.5px solid #222; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #444; }
+        /* NAV */
+        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 85px; background: rgba(10,10,10,0.95); display: flex; justify-content: space-around; align-items: center; padding-bottom: 25px; border-top: 0.5px solid #222; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #444; opacity: 0.5; pointer-events: none; }
+        .nav-item.enabled { opacity: 1; pointer-events: auto; }
         .nav-item.active { color: white; }
 
         .points-pop { position: absolute; top: -25px; right: 10px; font-weight: 900; animation: upFade 0.8s forwards; }
@@ -44,7 +45,7 @@
 <body>
 
     <div class="header">
-        <div id="status-label" style="font-size: 0.7rem; font-weight: 900;">OFFLINE</div>
+        <div id="status-label" style="font-size: 0.6rem; letter-spacing: 2px;">DISCONNECTED</div>
         <div style="position: relative;">
             <div id="score-badge" onclick="toggleIdentity()">0 BP</div>
             <div id="anim-box"></div>
@@ -52,47 +53,40 @@
     </div>
 
     <div id="v-missions" class="view active">
-        <div class="scan-container" id="match-screen">
-            <div class="radar" id="radar-ui" style="display:none;">📡</div>
-            <h2 id="match-status">PRÊT POUR CONNEXION</h2>
-            <p id="match-desc" style="color:#666; font-size: 0.8rem; margin-bottom: 20px;">Sélectionnez votre sujet dans Profil et lancez le scan.</p>
-            <button class="scan-btn" id="main-action-btn" onclick="startMatchmaking()">INITIALISER LE SCAN</button>
+        <div class="scan-container">
+            <div class="radar" id="radar-ui">📡</div>
+            <h2 id="match-status">SYSTÈME PRÊT</h2>
+            <button class="scan-btn" id="scan-btn" onclick="startScan()">LANCER LE SCAN</button>
         </div>
     </div>
 
     <div id="v-chat" class="view">
-        <div id="chat-header" style="text-align:center; padding: 10px; font-size: 0.6rem; color: var(--ai);">SESSION SÉCURISÉE</div>
         <div id="chat-content"></div>
         <div class="input-container" id="chat-controls">
-            <input type="text" id="msgInput" placeholder="Saisir message..." autocomplete="off">
-            <button id="sendBtn" style="width:35px; height:35px; border-radius:50%; border:none; background:var(--ai); color:white;" onclick="send()">↑</button>
+            <input type="text" id="msgInput" placeholder="Message crypté..." style="flex:1; background:#111; border:1px solid #333; color:white; padding:12px; border-radius:20px; outline:none;">
+            <button onclick="send()" style="background:var(--ai); border:none; color:white; width:35px; height:35px; border-radius:50%;">↑</button>
         </div>
     </div>
 
     <div id="v-profile" class="view">
-        <div style="padding: 20px; background: #111; margin: 20px; border-radius: 20px; text-align:center;">
-            <div id="prof-id" style="font-size: 1.2rem; font-family: monospace; margin-bottom: 5px;">AGENT-XXXX</div>
-            <div id="prof-grade" style="font-size: 0.7rem; color: #888;">RECRUE</div>
-        </div>
-        <div style="padding: 20px;">
-            <label style="font-size:0.6rem; color:#666;">SUJET DE RECHERCHE</label>
-            <select id="topic-pref" style="width:100%; background:#111; color:white; padding:15px; border-radius:10px; border:1px solid #333; margin-top:10px;">
-                <option value="life">LA VIE / PHILOSOPHIE</option>
-                <option value="study">COURS / ÉCOLE</option>
-                <option value="tech">TECH / CODE</option>
+        <div style="padding:20px; text-align:center;">
+            <h3 id="prof-id">AGENT-XXXX</h3>
+            <select id="topic-pref" style="width:100%; background:#111; color:white; padding:15px; border-radius:10px; border:1px solid #333;">
+                <option value="life">LA VIE</option>
+                <option value="study">COURS</option>
             </select>
         </div>
     </div>
 
     <div class="nav-bar">
-        <div class="nav-item active" onclick="nav('missions', this)"><span>📡</span><span style="font-size:0.6rem;">SCAN</span></div>
-        <div class="nav-item" onclick="nav('chat', this)" id="nav-chat-btn" style="opacity: 0.2; pointer-events: none;"><span>💬</span><span style="font-size:0.6rem;">CHAT</span></div>
-        <div class="nav-item" onclick="nav('profile', this)"><span>👤</span><span style="font-size:0.6rem;">PROFIL</span></div>
+        <div class="nav-item enabled active" id="nav-scan" onclick="nav('missions', this)">📡<br><small>SCAN</small></div>
+        <div class="nav-item" id="nav-chat" onclick="nav('chat', this)">💬<br><small>CHAT</small></div>
+        <div class="nav-item enabled" onclick="nav('profile', this)">👤<br><small>PROFIL</small></div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, updateDoc, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, doc, setDoc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDfuKPT9iSB-tpCAP3pCrRp98NlzOcNHG8",
@@ -106,20 +100,17 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let mode = localStorage.getItem('mode_v17') || 'AI';
-        let scores = { AI: parseInt(localStorage.getItem('sc_ai_v17')) || 0, HUMAN: parseInt(localStorage.getItem('sc_hu_v17')) || 0 };
+        let mode = localStorage.getItem('mode_v18') || 'AI';
         let agentID = localStorage.getItem('agent_id') || "AGENT-" + Math.floor(1000 + Math.random() * 9000);
+        localStorage.setItem('agent_id', agentID);
         let currentSessionId = null;
 
         function updateUI() {
             const color = (mode === 'AI') ? '#007AFF' : '#34C759';
-            document.getElementById('score-badge').innerText = scores[mode] + " BP";
-            document.getElementById('score-badge').style.borderColor = color;
             document.getElementById('score-badge').style.color = color;
-            document.getElementById('main-action-btn').style.background = color;
-            document.getElementById('radar-ui').style.borderColor = color;
+            document.getElementById('score-badge').style.borderColor = color;
             document.getElementById('prof-id').innerText = agentID;
-            document.getElementById('prof-id').style.color = color;
+            document.getElementById('radar-ui').style.color = color;
         }
 
         window.nav = (id, el) => {
@@ -131,102 +122,84 @@
 
         window.toggleIdentity = () => {
             mode = (mode === 'AI') ? 'HUMAN' : 'AI';
-            localStorage.setItem('mode_v17', mode);
+            localStorage.setItem('mode_v18', mode);
             updateUI();
         };
 
-        // --- LOGIQUE DE MATCHMAKING ---
-        window.startMatchmaking = async () => {
+        // --- MATCHMAKING LOGIQUE ---
+        window.startScan = async () => {
             const topic = document.getElementById('topic-pref').value;
-            const statusText = document.getElementById('match-status');
-            const btn = document.getElementById('main-action-btn');
             const radar = document.getElementById('radar-ui');
+            radar.classList.add('scanning');
+            radar.style.borderColor = (mode === 'AI' ? '#007AFF' : '#34C759');
+            document.getElementById('match-status').innerText = "RECHERCHE D'UN AGENT...";
 
-            statusText.innerText = "SCAN EN COURS...";
-            btn.style.display = "none";
-            radar.style.display = "flex";
+            // Écouter si quelqu'un nous invite
+            onSnapshot(doc(db, "agents", agentID), (snap) => {
+                if(snap.exists() && snap.data().currentSession) {
+                    joinSession(snap.data().currentSession);
+                }
+            });
 
-            // 1. Chercher si une session attend pour ce sujet avec le rôle opposé
-            const oppositeRole = (mode === 'AI') ? 'HUMAN' : 'AI';
-            const q = query(collection(db, "waiting_room"), where("topic", "==", topic), where("role", "==", oppositeRole));
+            // Chercher un partenaire
+            const opposite = (mode === 'AI') ? 'HUMAN' : 'AI';
+            const q = query(collection(db, "waiting_room"), where("topic", "==", topic), where("role", "==", opposite));
             
             onSnapshot(q, async (snap) => {
                 if (!snap.empty && !currentSessionId) {
-                    // Match trouvé !
-                    const matchDoc = snap.docs[0];
-                    currentSessionId = matchDoc.id;
-                    await deleteDoc(doc(db, "waiting_room", currentSessionId)); // On retire de la salle d'attente
-                    joinSession(currentSessionId);
+                    const partner = snap.docs[0].data();
+                    const sessionId = "sess_" + Date.now();
+                    
+                    // On invite le partenaire
+                    await setDoc(doc(db, "agents", partner.agent), { currentSession: sessionId }, { merge: true });
+                    // On se met nous même dans la session
+                    joinSession(sessionId);
+                    // On nettoie la salle d'attente
+                    await deleteDoc(doc(db, "waiting_room", partner.agent));
                 } else if (!currentSessionId) {
-                    // Personne ? On crée notre propre attente
-                    const waitRef = doc(collection(db, "waiting_room"), agentID);
-                    await setDoc(waitRef, { role: mode, topic: topic, agent: agentID, timestamp: new Date() });
-                    listenForMatch(agentID);
+                    // On s'inscrit en attente
+                    await setDoc(doc(db, "waiting_room", agentID), { agent: agentID, role: mode, topic: topic });
                 }
             }, { onlyOnce: true });
         };
 
-        function listenForMatch(myId) {
-            // Si quelqu'un nous "prend", il créera une session ou supprimera notre attente
-            // Pour simplifier ici, on simule une connexion réussie
-            setTimeout(() => {
-                if(!currentSessionId) {
-                    // Pour le test : si après 5s rien, on force une session test
-                    // (En réel, on attendrait un vrai utilisateur)
-                }
-            }, 5000);
-        }
-
         function joinSession(id) {
+            if(currentSessionId) return;
             currentSessionId = id;
             document.getElementById('match-status').innerText = "CONNEXION ÉTABLIE";
-            document.getElementById('status-label').innerText = "CONNECTED";
-            document.getElementById('nav-chat-btn').style.opacity = "1";
-            document.getElementById('nav-chat-btn').style.pointerEvents = "auto";
+            document.getElementById('status-label').innerText = "EN LIGNE";
+            
+            const chatNav = document.getElementById('nav-chat');
+            chatNav.classList.add('enabled');
             document.getElementById('chat-controls').classList.add('active');
             
-            // On bascule vers le chat
-            nav('chat', document.getElementById('nav-chat-btn'));
-            
-            // Écouter les messages de cette session
+            nav('chat', chatNav);
+
+            // Écoute des messages
             const q = query(collection(db, "sessions", id, "messages"), orderBy("timestamp", "asc"));
             onSnapshot(q, (snap) => {
-                const chat = document.getElementById('chat-content');
-                chat.innerHTML = "";
-                snap.forEach(d => addBubble(d.data().text, 'msg-' + d.data().role));
-                chat.scrollTop = chat.scrollHeight;
+                const cont = document.getElementById('chat-content');
+                cont.innerHTML = "";
+                snap.forEach(m => {
+                    const div = document.createElement('div');
+                    div.className = 'bubble msg-' + m.data().role;
+                    div.innerText = m.data().text;
+                    cont.appendChild(div);
+                });
+                cont.scrollTop = cont.scrollHeight;
             });
         }
 
         window.send = async () => {
-            const el = document.getElementById('msgInput');
-            if(!el.value.trim() || !currentSessionId) return;
+            const input = document.getElementById('msgInput');
+            if(!input.value || !currentSessionId) return;
             await addDoc(collection(db, "sessions", currentSessionId, "messages"), {
-                text: el.value,
+                text: input.value,
                 role: mode,
                 timestamp: new Date()
             });
-            addPoints(mode === 'HUMAN' ? 50 : 10);
-            el.value = "";
+            input.value = "";
         };
-
-        function addBubble(txt, cls) {
-            const div = document.createElement('div');
-            div.className = 'bubble ' + cls;
-            div.innerText = txt;
-            document.getElementById('chat-content').appendChild(div);
-        }
-
-        function addPoints(p) {
-            scores[mode] += p;
-            localStorage.setItem('sc_'+mode.toLowerCase()+'_v17', scores[mode]);
-            const d = document.createElement('div');
-            d.className = 'points-pop';
-            d.innerText = '+'+p; d.style.color = (mode === 'AI') ? '#007AFF' : '#34C759';
-            document.getElementById('anim-box').appendChild(d);
-            setTimeout(() => d.remove(), 800);
-            updateUI();
-        }
 
         updateUI();
     </script>
