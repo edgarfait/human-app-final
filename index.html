@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Human Protocol - Final Settings</title>
+    <title>Human Protocol - Sync V20</title>
     <style>
         :root { --bg: #000; --hu: #34C759; --ai: #007AFF; --gray: #1C1C1E; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -18,28 +18,24 @@
 
         /* SCAN UI */
         .scan-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; }
-        .radar { width: 120px; height: 120px; border-radius: 50%; border: 2px solid #333; position: relative; margin-bottom: 30px; display: flex; align-items: center; justify-content: center; font-size: 2rem; transition: 0.3s; }
-        .radar.scanning::after { content: ''; position: absolute; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: inherit; animation: spin 2s linear infinite; }
+        .radar { width: 100px; height: 100px; border-radius: 50%; border: 2px solid #333; position: relative; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; transition: 0.3s; }
+        .radar.scanning::after { content: ''; position: absolute; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: inherit; animation: spin 1.5s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .scan-btn { background: #333; color: white; border: none; padding: 15px 40px; border-radius: 30px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .scan-btn { background: #333; color: white; border: none; padding: 15px 40px; border-radius: 30px; font-weight: bold; cursor: pointer; }
 
         /* CHAT UI */
         #chat-content { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .bubble { max-width: 80%; padding: 12px 16px; border-radius: 20px; font-size: 0.95rem; line-height: 1.3; }
+        .bubble { max-width: 80%; padding: 12px 16px; border-radius: 20px; font-size: 0.95rem; line-height: 1.3; animation: pop 0.2s ease; }
+        @keyframes pop { from { opacity:0; transform:scale(0.8); } to { opacity:1; transform:scale(1); } }
         .msg-AI { align-self: flex-start; background: #1a1a1c; border: 1px solid var(--ai); color: var(--ai); border-bottom-left-radius: 4px; }
         .msg-HUMAN { align-self: flex-end; background: var(--hu); color: white; border-bottom-right-radius: 4px; }
         
         .input-container { position: fixed; bottom: 95px; width: calc(100% - 30px); left: 15px; background: #1C1C1E; padding: 5px; display: none; align-items: center; gap: 10px; border-radius: 30px; border: 1px solid #333; }
         .input-container.active { display: flex; }
 
-        /* PROFILE UI */
-        .setting-group { padding: 20px; border-bottom: 0.5px solid #222; }
-        .setting-label { font-size: 0.65rem; color: #666; font-weight: 900; letter-spacing: 1px; margin-bottom: 10px; display: block; }
-        select { width: 100%; background: #111; color: white; border: 1px solid #333; padding: 15px; border-radius: 15px; font-size: 1rem; outline: none; }
-
         /* NAV */
         .nav-bar { position: fixed; bottom: 0; width: 100%; height: 85px; background: rgba(10,10,10,0.95); display: flex; justify-content: space-around; align-items: center; padding-bottom: 25px; border-top: 0.5px solid #222; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; color: #444; opacity: 0.5; pointer-events: none; transition: 0.3s; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: #444; opacity: 0.5; pointer-events: none; }
         .nav-item.enabled { opacity: 1; pointer-events: auto; }
         .nav-item.active { color: white; }
     </style>
@@ -47,63 +43,47 @@
 <body>
 
     <div class="header">
-        <div id="status-label" style="font-size: 0.6rem; font-weight: 900; letter-spacing: 1px;">SÉCURISÉ</div>
-        <div style="position: relative;">
-            <div id="score-badge" onclick="toggleIdentity()">0 BP</div>
-            <div id="anim-box"></div>
-        </div>
+        <div id="status-label" style="font-size: 0.6rem; font-weight: 900;">OFFLINE</div>
+        <div id="score-badge" onclick="toggleIdentity()">0 BP</div>
     </div>
 
     <div id="v-missions" class="view active">
         <div class="scan-container">
             <div class="radar" id="radar-ui">📡</div>
-            <h2 id="match-status" style="font-size: 1.1rem;">SYSTÈME PRÊT</h2>
-            <p id="match-desc" style="color:#444; font-size:0.8rem; margin-bottom:20px;">Recherche basée sur vos préférences</p>
-            <button class="scan-btn" id="scan-btn" onclick="startScan()">INITIALISER LA CONNEXION</button>
+            <h2 id="match-status">SYSTÈME PRÊT</h2>
+            <button class="scan-btn" id="scan-btn" onclick="startScan()">INITIALISER SCAN</button>
         </div>
     </div>
 
     <div id="v-chat" class="view">
         <div id="chat-content"></div>
         <div class="input-container" id="chat-controls">
-            <input type="text" id="msgInput" placeholder="Message..." style="flex:1; background:transparent; border:none; color:white; padding:10px; padding-left:15px; outline:none;">
-            <button onclick="send()" id="send-btn-ui" style="background:var(--ai); border:none; color:white; width:35px; height:35px; border-radius:50%; font-weight:bold;">↑</button>
+            <input type="text" id="msgInput" placeholder="Saisir..." style="flex:1; background:transparent; border:none; color:white; padding:10px; outline:none;">
+            <button onclick="send()" style="background:var(--ai); border:none; color:white; width:35px; height:35px; border-radius:50%;">↑</button>
         </div>
     </div>
 
     <div id="v-profile" class="view">
-        <div style="padding:30px; text-align:center; background:#111; margin:15px; border-radius:25px;">
-            <h3 id="prof-id" style="font-family:monospace; margin:0;">AGENT-XXXX</h3>
-            <p id="prof-grade" style="font-size:0.7rem; color:#666; margin-top:5px;">GRADE : RECRUE</p>
-        </div>
-        
-        <div class="setting-group">
-            <span class="setting-label">FRÉQUENCE DE LANGUE</span>
-            <select id="lang-pref" onchange="saveSettings()">
-                <option value="fr">FRANÇAIS</option>
-                <option value="en">ENGLISH</option>
-            </select>
-        </div>
-
-        <div class="setting-group">
-            <span class="setting-label">SUJET DE PRÉFÉRENCE</span>
-            <select id="topic-pref" onchange="saveSettings()">
-                <option value="life">LA VIE / PHILOSOPHIE</option>
-                <option value="study">COURS / ÉCOLE</option>
-                <option value="tech">TECH / CODE</option>
+        <div style="padding:20px;">
+            <h3 id="prof-id" style="text-align:center; font-family:monospace;"></h3>
+            <label style="font-size:0.6rem; color:#666;">SUJET</label>
+            <select id="topic-pref" style="width:100%; background:#111; color:white; padding:15px; border-radius:10px; margin-top:10px;">
+                <option value="life">LA VIE</option>
+                <option value="study">COURS</option>
+                <option value="tech">TECH</option>
             </select>
         </div>
     </div>
 
     <div class="nav-bar">
-        <div class="nav-item enabled active" id="nav-scan" onclick="nav('missions', this)">📡<br><small style="font-size:0.5rem">SCAN</small></div>
-        <div class="nav-item" id="nav-chat" onclick="nav('chat', this)">💬<br><small style="font-size:0.5rem">CHAT</small></div>
-        <div class="nav-item enabled" onclick="nav('profile', this)">👤<br><small style="font-size:0.5rem">PROFIL</small></div>
+        <div class="nav-item enabled active" id="nav-scan" onclick="nav('missions', this)">📡<br><small>SCAN</small></div>
+        <div class="nav-item" id="nav-chat" onclick="nav('chat', this)">💬<br><small>CHAT</small></div>
+        <div class="nav-item enabled" onclick="nav('profile', this)">👤<br><small>PROFIL</small></div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, doc, setDoc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, doc, setDoc, deleteDoc, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDfuKPT9iSB-tpCAP3pCrRp98NlzOcNHG8",
@@ -117,31 +97,17 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // --- INIT DATA ---
-        let mode = localStorage.getItem('mode_v19') || 'AI';
+        let mode = localStorage.getItem('mode_v20') || 'AI';
         let agentID = localStorage.getItem('agent_id') || "AGENT-" + Math.floor(1000 + Math.random() * 9000);
         localStorage.setItem('agent_id', agentID);
-        
-        // Load Saved Settings
-        document.getElementById('lang-pref').value = localStorage.getItem('lang_v19') || 'fr';
-        document.getElementById('topic-pref').value = localStorage.getItem('topic_v19') || 'life';
-
         let currentSessionId = null;
-
-        window.saveSettings = () => {
-            localStorage.setItem('lang_v19', document.getElementById('lang-pref').value);
-            localStorage.setItem('topic_v19', document.getElementById('topic-pref').value);
-        };
+        let unsubscribeMessages = null;
 
         function updateUI() {
             const color = (mode === 'AI') ? '#007AFF' : '#34C759';
-            const badge = document.getElementById('score-badge');
-            badge.style.color = color;
-            badge.style.borderColor = color;
+            document.getElementById('score-badge').style.color = color;
             document.getElementById('prof-id').innerText = agentID;
-            document.getElementById('prof-id').style.color = color;
             document.getElementById('radar-ui').style.color = color;
-            document.getElementById('send-btn-ui').style.background = color;
         }
 
         window.nav = (id, el) => {
@@ -153,57 +119,54 @@
 
         window.toggleIdentity = () => {
             mode = (mode === 'AI') ? 'HUMAN' : 'AI';
-            localStorage.setItem('mode_v19', mode);
+            localStorage.setItem('mode_v20', mode);
             updateUI();
         };
 
         // --- MATCHMAKING ---
         window.startScan = async () => {
             const topic = document.getElementById('topic-pref').value;
-            const lang = document.getElementById('lang-pref').value;
             const radar = document.getElementById('radar-ui');
-            
             radar.classList.add('scanning');
-            radar.style.borderColor = (mode === 'AI' ? '#007AFF' : '#34C759');
-            document.getElementById('match-status').innerText = "RECHERCHE DE SIGNAL...";
-            document.getElementById('scan-btn').style.opacity = "0.5";
-            document.getElementById('scan-btn').innerText = "EN ATTENTE";
+            document.getElementById('match-status').innerText = "SCAN EN COURS...";
 
-            // Écouter si quelqu'un nous invite
+            // Écouter si on nous invite (Clean)
             onSnapshot(doc(db, "agents", agentID), (snap) => {
-                if(snap.exists() && snap.data().currentSession) joinSession(snap.data().currentSession);
+                if(snap.exists() && snap.data().currentSession && snap.data().currentSession !== currentSessionId) {
+                    joinSession(snap.data().currentSession);
+                }
             });
 
             const opposite = (mode === 'AI') ? 'HUMAN' : 'AI';
-            const q = query(collection(db, "waiting_room"), 
-                            where("topic", "==", topic), 
-                            where("lang", "==", lang), 
-                            where("role", "==", opposite));
+            const q = query(collection(db, "waiting_room"), where("topic", "==", topic), where("role", "==", opposite));
             
             onSnapshot(q, async (snap) => {
                 if (!snap.empty && !currentSessionId) {
                     const partner = snap.docs[0].data();
-                    const sessionId = "sess_" + Date.now();
-                    await setDoc(doc(db, "agents", partner.agent), { currentSession: sessionId }, { merge: true });
-                    joinSession(sessionId);
+                    const newSid = "sess_" + Date.now() + "_" + agentID;
+                    await setDoc(doc(db, "agents", partner.agent), { currentSession: newSid });
+                    joinSession(newSid);
                     await deleteDoc(doc(db, "waiting_room", partner.agent));
                 } else if (!currentSessionId) {
-                    await setDoc(doc(db, "waiting_room", agentID), { agent: agentID, role: mode, topic: topic, lang: lang });
+                    await setDoc(doc(db, "waiting_room", agentID), { agent: agentID, role: mode, topic: topic });
                 }
             }, { onlyOnce: true });
         };
 
         function joinSession(id) {
-            if(currentSessionId) return;
             currentSessionId = id;
-            document.getElementById('match-status').innerText = "SIGNAL ÉTABLI";
+            document.getElementById('match-status').innerText = "CONNECTÉ";
+            document.getElementById('status-label').innerText = "ONLINE";
             const chatNav = document.getElementById('nav-chat');
             chatNav.classList.add('enabled');
             document.getElementById('chat-controls').classList.add('active');
             nav('chat', chatNav);
 
+            // Désinscription de l'ancienne écoute si elle existe
+            if(unsubscribeMessages) unsubscribeMessages();
+
             const q = query(collection(db, "sessions", id, "messages"), orderBy("timestamp", "asc"));
-            onSnapshot(q, (snap) => {
+            unsubscribeMessages = onSnapshot(q, (snap) => {
                 const cont = document.getElementById('chat-content');
                 cont.innerHTML = "";
                 snap.forEach(m => {
@@ -226,8 +189,6 @@
             });
             input.value = "";
         };
-
-        document.getElementById('msgInput').addEventListener('keypress', (e) => { if(e.key === 'Enter') window.send(); });
 
         updateUI();
     </script>
