@@ -3,194 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Human Protocol - Sync V20</title>
+    <title>Protocol V21 - Stable Sync</title>
     <style>
-        :root { --bg: #000; --hu: #34C759; --ai: #007AFF; --gray: #1C1C1E; }
+        :root { --bg: #000; --hu: #34C759; --ai: #007AFF; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { background: var(--bg); color: white; font-family: -apple-system, sans-serif; margin: 0; height: 100vh; overflow: hidden; }
-
-        /* HEADER */
-        .header { padding: 55px 20px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.9); backdrop-filter: blur(15px); z-index: 100; border-bottom: 0.5px solid #222; position: fixed; top: 0; width: 100%; }
-        #score-badge { cursor: pointer; font-weight: 700; font-size: 0.85rem; background: #222; padding: 6px 14px; border-radius: 20px; border: 1px solid transparent; }
-        
-        .view { display: none; height: 100vh; flex-direction: column; padding-top: 110px; padding-bottom: 90px; overflow-y: auto; }
+        .header { padding: 55px 20px 15px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.9); z-index: 100; border-bottom: 0.5px solid #222; position: fixed; top: 0; width: 100%; }
+        .view { display: none; height: 100vh; flex-direction: column; padding-top: 110px; padding-bottom: 90px; }
         .view.active { display: flex; }
-
-        /* SCAN UI */
-        .scan-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; }
-        .radar { width: 100px; height: 100px; border-radius: 50%; border: 2px solid #333; position: relative; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; transition: 0.3s; }
-        .radar.scanning::after { content: ''; position: absolute; width: 100%; height: 100%; border-radius: 50%; border: 2px solid transparent; border-top-color: inherit; animation: spin 1.5s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .scan-btn { background: #333; color: white; border: none; padding: 15px 40px; border-radius: 30px; font-weight: bold; cursor: pointer; }
-
-        /* CHAT UI */
-        #chat-content { flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .bubble { max-width: 80%; padding: 12px 16px; border-radius: 20px; font-size: 0.95rem; line-height: 1.3; animation: pop 0.2s ease; }
-        @keyframes pop { from { opacity:0; transform:scale(0.8); } to { opacity:1; transform:scale(1); } }
-        .msg-AI { align-self: flex-start; background: #1a1a1c; border: 1px solid var(--ai); color: var(--ai); border-bottom-left-radius: 4px; }
-        .msg-HUMAN { align-self: flex-end; background: var(--hu); color: white; border-bottom-right-radius: 4px; }
-        
-        .input-container { position: fixed; bottom: 95px; width: calc(100% - 30px); left: 15px; background: #1C1C1E; padding: 5px; display: none; align-items: center; gap: 10px; border-radius: 30px; border: 1px solid #333; }
-        .input-container.active { display: flex; }
-
-        /* NAV */
-        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 85px; background: rgba(10,10,10,0.95); display: flex; justify-content: space-around; align-items: center; padding-bottom: 25px; border-top: 0.5px solid #222; }
-        .nav-item { display: flex; flex-direction: column; align-items: center; color: #444; opacity: 0.5; pointer-events: none; }
-        .nav-item.enabled { opacity: 1; pointer-events: auto; }
-        .nav-item.active { color: white; }
+        .scan-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .radar { width: 80px; height: 80px; border-radius: 50%; border: 2px solid #333; margin-bottom: 20px; position: relative; }
+        .radar.scanning::after { content:''; position:absolute; width:100%; height:100%; border-radius:50%; border-top:2px solid inherit; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #chat-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+        .bubble { max-width: 80%; padding: 10px 15px; border-radius: 18px; font-size: 0.9rem; }
+        .msg-AI { align-self: flex-start; border: 1px solid var(--ai); color: var(--ai); }
+        .msg-HUMAN { align-self: flex-end; background: var(--hu); color: white; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 80px; background: #080808; display: flex; justify-content: space-around; align-items: center; border-top: 0.5px solid #222; }
+        .nav-item { opacity: 0.3; text-align: center; font-size: 0.7rem; pointer-events: none; }
+        .nav-item.on { opacity: 1; pointer-events: auto; }
+        .input-area { position: fixed; bottom: 90px; width: 100%; padding: 10px; display: none; }
+        .input-area.on { display: flex; gap: 10px; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div id="status-label" style="font-size: 0.6rem; font-weight: 900;">OFFLINE</div>
-        <div id="score-badge" onclick="toggleIdentity()">0 BP</div>
+        <div id="st" style="font-size: 0.6rem; font-weight: 900;">OFFLINE</div>
+        <div id="sc" onclick="toggleMode()" style="font-weight: bold; border: 1px solid #333; padding: 5px 15px; border-radius: 20px;">0 BP</div>
     </div>
 
-    <div id="v-missions" class="view active">
+    <div id="v-scan" class="view active">
         <div class="scan-container">
-            <div class="radar" id="radar-ui">📡</div>
-            <h2 id="match-status">SYSTÈME PRÊT</h2>
-            <button class="scan-btn" id="scan-btn" onclick="startScan()">INITIALISER SCAN</button>
+            <div id="rd" class="radar"></div>
+            <button onclick="doScan()" id="bt" style="background:white; color:black; border:none; padding:15px 30px; border-radius:25px; font-weight:bold;">SCANNER</button>
         </div>
     </div>
 
     <div id="v-chat" class="view">
         <div id="chat-content"></div>
-        <div class="input-container" id="chat-controls">
-            <input type="text" id="msgInput" placeholder="Saisir..." style="flex:1; background:transparent; border:none; color:white; padding:10px; outline:none;">
-            <button onclick="send()" style="background:var(--ai); border:none; color:white; width:35px; height:35px; border-radius:50%;">↑</button>
-        </div>
-    </div>
-
-    <div id="v-profile" class="view">
-        <div style="padding:20px;">
-            <h3 id="prof-id" style="text-align:center; font-family:monospace;"></h3>
-            <label style="font-size:0.6rem; color:#666;">SUJET</label>
-            <select id="topic-pref" style="width:100%; background:#111; color:white; padding:15px; border-radius:10px; margin-top:10px;">
-                <option value="life">LA VIE</option>
-                <option value="study">COURS</option>
-                <option value="tech">TECH</option>
-            </select>
+        <div class="input-area" id="ctrl">
+            <input type="text" id="in" style="flex:1; background:#111; border:1px solid #333; color:white; padding:12px; border-radius:20px; outline:none;">
+            <button onclick="send()" style="background:var(--ai); border:none; color:white; width:40px; border-radius:50%;">↑</button>
         </div>
     </div>
 
     <div class="nav-bar">
-        <div class="nav-item enabled active" id="nav-scan" onclick="nav('missions', this)">📡<br><small>SCAN</small></div>
-        <div class="nav-item" id="nav-chat" onclick="nav('chat', this)">💬<br><small>CHAT</small></div>
-        <div class="nav-item enabled" onclick="nav('profile', this)">👤<br><small>PROFIL</small></div>
+        <div class="nav-item on" onclick="show('scan')">📡<br>SCAN</div>
+        <div class="nav-item" id="nv-ch" onclick="show('chat')">💬<br>CHAT</div>
+        <div class="nav-item on" onclick="alert('Agent ID: '+agentID)">👤<br>ID</div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, doc, setDoc, deleteDoc, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, doc, setDoc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDfuKPT9iSB-tpCAP3pCrRp98NlzOcNHG8",
-            authDomain: "human-protocol-67c66.firebaseapp.com",
-            projectId: "human-protocol-67c66",
-            storageBucket: "human-protocol-67c66.firebasestorage.app",
-            messagingSenderId: "973157410623",
-            appId: "1:973157410623:web:528f020e7c5793e5d4158a"
-        };
-
-        const app = initializeApp(firebaseConfig);
+        const conf = { apiKey: "AIzaSyDfuKPT9iSB-tpCAP3pCrRp98NlzOcNHG8", authDomain: "human-protocol-67c66.firebaseapp.com", projectId: "human-protocol-67c66" };
+        const app = initializeApp(conf);
         const db = getFirestore(app);
 
-        let mode = localStorage.getItem('mode_v20') || 'AI';
-        let agentID = localStorage.getItem('agent_id') || "AGENT-" + Math.floor(1000 + Math.random() * 9000);
-        localStorage.setItem('agent_id', agentID);
-        let currentSessionId = null;
-        let unsubscribeMessages = null;
+        let mode = localStorage.getItem('mode') || 'AI';
+        let agentID = localStorage.getItem('aid') || "AG-" + Math.floor(Math.random()*9999);
+        localStorage.setItem('aid', agentID);
+        let curSess = null;
 
-        function updateUI() {
-            const color = (mode === 'AI') ? '#007AFF' : '#34C759';
-            document.getElementById('score-badge').style.color = color;
-            document.getElementById('prof-id').innerText = agentID;
-            document.getElementById('radar-ui').style.color = color;
-        }
+        window.toggleMode = () => {
+            mode = (mode === 'AI' ? 'HUMAN' : 'AI');
+            localStorage.setItem('mode', mode);
+            location.reload();
+        };
 
-        window.nav = (id, el) => {
+        window.show = (id) => {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.getElementById('v-' + id).classList.add('active');
-            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-            el.classList.add('active');
+            document.getElementById('v-'+id).classList.add('active');
         };
 
-        window.toggleIdentity = () => {
-            mode = (mode === 'AI') ? 'HUMAN' : 'AI';
-            localStorage.setItem('mode_v20', mode);
-            updateUI();
-        };
-
-        // --- MATCHMAKING ---
-        window.startScan = async () => {
-            const topic = document.getElementById('topic-pref').value;
-            const radar = document.getElementById('radar-ui');
-            radar.classList.add('scanning');
-            document.getElementById('match-status').innerText = "SCAN EN COURS...";
-
-            // Écouter si on nous invite (Clean)
-            onSnapshot(doc(db, "agents", agentID), (snap) => {
-                if(snap.exists() && snap.data().currentSession && snap.data().currentSession !== currentSessionId) {
-                    joinSession(snap.data().currentSession);
-                }
+        // --- SCAN LOGIQUE ---
+        window.doScan = async () => {
+            document.getElementById('rd').classList.add('scanning');
+            document.getElementById('bt').innerText = "RECHERCHE...";
+            
+            // On surveille si quelqu'un nous a trouvé
+            onSnapshot(doc(db, "agents", agentID), (s) => {
+                if(s.exists() && s.data().sid) startChat(s.data().sid);
             });
 
-            const opposite = (mode === 'AI') ? 'HUMAN' : 'AI';
-            const q = query(collection(db, "waiting_room"), where("topic", "==", topic), where("role", "==", opposite));
+            const opp = (mode === 'AI' ? 'HUMAN' : 'AI');
+            const q = query(collection(db, "waiting"), where("role", "==", opp));
             
             onSnapshot(q, async (snap) => {
-                if (!snap.empty && !currentSessionId) {
-                    const partner = snap.docs[0].data();
-                    const newSid = "sess_" + Date.now() + "_" + agentID;
-                    await setDoc(doc(db, "agents", partner.agent), { currentSession: newSid });
-                    joinSession(newSid);
-                    await deleteDoc(doc(db, "waiting_room", partner.agent));
-                } else if (!currentSessionId) {
-                    await setDoc(doc(db, "waiting_room", agentID), { agent: agentID, role: mode, topic: topic });
+                if(!snap.empty && !curSess) {
+                    const p = snap.docs[0].data();
+                    // ID stable : tri alphabétique des deux IDs
+                    const sid = [agentID, p.aid].sort().join("_");
+                    await setDoc(doc(db, "agents", p.aid), { sid: sid });
+                    startChat(sid);
+                    await deleteDoc(doc(db, "waiting", p.aid));
+                } else if(!curSess) {
+                    await setDoc(doc(db, "waiting", agentID), { aid: agentID, role: mode });
                 }
-            }, { onlyOnce: true });
+            }, {onlyOnce: true});
         };
 
-        function joinSession(id) {
-            currentSessionId = id;
-            document.getElementById('match-status').innerText = "CONNECTÉ";
-            document.getElementById('status-label').innerText = "ONLINE";
-            const chatNav = document.getElementById('nav-chat');
-            chatNav.classList.add('enabled');
-            document.getElementById('chat-controls').classList.add('active');
-            nav('chat', chatNav);
+        function startChat(id) {
+            if(curSess) return;
+            curSess = id;
+            document.getElementById('st').innerText = "ONLINE";
+            document.getElementById('nv-ch').classList.add('on');
+            document.getElementById('ctrl').classList.add('on');
+            show('chat');
 
-            // Désinscription de l'ancienne écoute si elle existe
-            if(unsubscribeMessages) unsubscribeMessages();
-
-            const q = query(collection(db, "sessions", id, "messages"), orderBy("timestamp", "asc"));
-            unsubscribeMessages = onSnapshot(q, (snap) => {
-                const cont = document.getElementById('chat-content');
-                cont.innerHTML = "";
-                snap.forEach(m => {
-                    const div = document.createElement('div');
-                    div.className = 'bubble msg-' + m.data().role;
-                    div.innerText = m.data().text;
-                    cont.appendChild(div);
+            const q = query(collection(db, "sessions", id, "ms"), orderBy("t", "asc"));
+            onSnapshot(q, (s) => {
+                const c = document.getElementById('chat-content');
+                c.innerHTML = "";
+                s.forEach(m => {
+                    const d = document.createElement('div');
+                    d.className = 'bubble msg-'+m.data().r;
+                    d.innerText = m.data().tx;
+                    c.appendChild(d);
                 });
-                cont.scrollTop = cont.scrollHeight;
+                c.scrollTop = c.scrollHeight;
             });
         }
 
         window.send = async () => {
-            const input = document.getElementById('msgInput');
-            if(!input.value || !currentSessionId) return;
-            await addDoc(collection(db, "sessions", currentSessionId, "messages"), {
-                text: input.value,
-                role: mode,
-                timestamp: new Date()
-            });
-            input.value = "";
+            const i = document.getElementById('in');
+            if(!i.value || !curSess) return;
+            await addDoc(collection(db, "sessions", curSess, "ms"), { tx: i.value, r: mode, t: Date.now() });
+            i.value = "";
         };
 
-        updateUI();
+        document.getElementById('sc').innerText = mode;
+        document.getElementById('sc').style.color = (mode === 'AI' ? '#007AFF' : '#34C759');
     </script>
 </body>
 </html>
