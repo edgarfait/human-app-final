@@ -3,24 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Protocol V24 - Clean Slate</title>
+    <title>Human Protocol V26 - Global Sync</title>
     <style>
         :root { --bg: #000; --hu: #34C759; --ai: #007AFF; --card: #111; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, sans-serif; }
         body { background: var(--bg); color: white; margin: 0; height: 100vh; overflow: hidden; }
+        
+        /* HEADER */
         .header { padding: 55px 20px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 0.5px solid #222; position: fixed; top: 0; width: 100%; background: black; z-index: 10; }
         .view { display: none; height: 100vh; flex-direction: column; padding-top: 110px; padding-bottom: 90px; overflow-y: auto; }
         .view.active { display: flex; }
+
+        /* SCAN UI */
+        .scan-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
         .radar { width: 80px; height: 80px; border-radius: 50%; border: 2px solid #333; position: relative; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .radar.on { border-color: var(--ai); }
         .radar.on::after { content:''; position:absolute; width:100%; height:100%; border-radius:50%; border-top:2px solid var(--ai); animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* CHAT UI */
         #chat-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .bubble { max-width: 80%; padding: 12px; border-radius: 18px; font-size: 0.9rem; }
-        .msg-AI { align-self: flex-start; border: 1px solid var(--ai); color: var(--ai); }
-        .msg-HUMAN { align-self: flex-end; background: var(--hu); color: white; }
+        .bubble { max-width: 80%; padding: 12px; border-radius: 18px; font-size: 0.9rem; line-height: 1.4; }
+        .msg-AI { align-self: flex-start; border: 1px solid var(--ai); color: var(--ai); border-bottom-left-radius: 4px; }
+        .msg-HUMAN { align-self: flex-end; background: var(--hu); color: white; border-bottom-right-radius: 4px; }
+
+        /* PROFILE UI */
+        .prof-card { background: var(--card); margin: 15px; padding: 25px; border-radius: 20px; text-align: center; border: 1px solid #222; }
+        .setting-item { padding: 15px 20px; border-bottom: 0.5px solid #222; }
+        .label { font-size: 0.6rem; color: #666; font-weight: 900; letter-spacing: 1px; display: block; margin-bottom: 10px; }
+        select { width: 100%; background: #1a1a1c; color: white; border: 1px solid #333; padding: 12px; border-radius: 12px; outline: none; font-size: 1rem; }
+
+        /* NAV BAR */
         .nav-bar { position: fixed; bottom: 0; width: 100%; height: 85px; background: #080808; display: flex; justify-content: space-around; align-items: center; padding-bottom: 20px; border-top: 0.5px solid #222; }
-        .nav-item { opacity: 0.3; text-align: center; font-size: 0.65rem; color: #888; }
+        .nav-item { opacity: 0.3; text-align: center; font-size: 0.65rem; pointer-events: none; transition: 0.3s; color: #888; }
+        .nav-item.enabled { opacity: 1; pointer-events: auto; }
         .nav-item.active { color: white; opacity: 1; }
+
+        /* INPUT AREA */
         .input-area { position: fixed; bottom: 95px; width: calc(100% - 30px); left: 15px; padding: 5px; display: none; background: #1c1c1e; border-radius: 30px; border: 1px solid #333; }
         .input-area.on { display: flex; }
     </style>
@@ -28,15 +47,15 @@
 <body>
 
     <div class="header">
-        <div id="status" style="font-size: 0.6rem; font-weight: 900;">SECURED</div>
-        <div id="mode-badge" onclick="changeMode()" style="font-weight: 900; padding: 5px 15px; border-radius: 20px; border: 1px solid #333;">MODE</div>
+        <div id="status" style="font-size: 0.6rem; font-weight: 900; letter-spacing: 1px;">SECURED</div>
+        <div id="mode-badge" onclick="changeMode()" style="font-weight: 900; padding: 5px 15px; border-radius: 20px; border: 1px solid #333; font-size: 0.8rem;">MODE</div>
     </div>
 
     <div id="v-scan" class="view active">
-        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;">
+        <div class="scan-container">
             <div id="radar-ui" class="radar">📡</div>
-            <div id="info" style="font-size: 0.8rem; color: #444;">PRÊT</div>
-            <button onclick="startSearch()" id="btn-scan" style="background:white; color:black; border:none; padding:15px 40px; border-radius:30px; font-weight:bold;">LANCER LE SCAN</button>
+            <div id="info" style="font-size: 0.8rem; color: #444; font-family: monospace;">READY TO SCAN</div>
+            <button onclick="startSearch()" id="btn-scan" style="background:white; color:black; border:none; padding:15px 40px; border-radius:30px; font-weight:bold; letter-spacing:1px;">INITIALISER SCAN</button>
         </div>
     </div>
 
@@ -44,48 +63,77 @@
         <div id="chat-content"></div>
         <div class="input-area" id="input-ui">
             <input type="text" id="msg-in" placeholder="Message..." style="flex:1; background:transparent; border:none; color:white; padding:10px 15px; outline:none;">
-            <button onclick="send()" style="background:var(--ai); border:none; color:white; width:40px; height:40px; border-radius:50%;">↑</button>
+            <button onclick="send()" style="background:var(--ai); border:none; color:white; width:40px; height:40px; border-radius:50%; font-weight:bold;">↑</button>
         </div>
     </div>
 
     <div id="v-profile" class="view">
-        <div style="padding:20px;">
-            <h3 id="prof-id-ui" style="text-align:center; font-family:monospace;"></h3>
-            <label style="font-size:0.6rem; color:#666;">SUJET</label>
-            <select id="topic-pref" onchange="savePrefs()" style="width:100%; background:#111; color:white; padding:15px; border-radius:12px; margin-top:10px;">
-                <option value="life">LA VIE</option>
-                <option value="study">COURS</option>
-                <option value="tech">TECH</option>
+        <div class="prof-card">
+            <div id="prof-id-ui" style="font-size: 1.2rem; font-weight: bold; font-family: monospace; color: var(--ai);">AGENT-XXXX</div>
+            <div style="font-size: 0.6rem; color: #666; margin-top: 5px;">STATUT : ACTIF</div>
+        </div>
+
+        <div class="setting-item">
+            <span class="label">ATMOSPHÈRE DE SCAN</span>
+            <select id="topic-pref" onchange="savePrefs()">
+                <option value="all">🌐 TOUT (Recherche globale)</option>
+                <option value="classic">💬 QUESTIONS CLASSIQUES</option>
+                <option value="clash">⚡ CLASH (Débats inutiles)</option>
+                <option value="chill">🥂 CHILL (Vibe / Lifestyle)</option>
+                <option value="dark">🌙 DARK (Confessions / Cash)</option>
+                <option value="medical">💊 MEDICAL (Santé / Bio)</option>
             </select>
+        </div>
+
+        <div class="setting-item">
+            <span class="label">PROTOCOLE LINGUISTIQUE</span>
+            <select id="lang-pref" onchange="savePrefs()">
+                <option value="fr">FRANÇAIS</option>
+                <option value="en">ENGLISH</option>
+            </select>
+        </div>
+        
+        <div style="padding: 20px; text-align: center; opacity: 0.3; font-size: 0.7rem;">
+            HUMAN PROTOCOL V26.0<br>ENCRYPTED SESSION ACTIVE
         </div>
     </div>
 
     <div class="nav-bar">
-        <div class="nav-item active" id="n-scan" onclick="nav('scan', this)">📡<br>SCAN</div>
+        <div class="nav-item enabled active" id="n-scan" onclick="nav('scan', this)">📡<br>SCAN</div>
         <div class="nav-item" id="n-chat" onclick="nav('chat', this)">💬<br>CHAT</div>
-        <div class="nav-item active" id="n-prof" onclick="nav('profile', this)">👤<br>PROFIL</div>
+        <div class="nav-item enabled" id="n-prof" onclick="nav('profile', this)">👤<br>PROFIL</div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, doc, setDoc, deleteDoc, orderBy, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, doc, setDoc, deleteDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { apiKey: "AIzaSyDfuKPT9iSB-tpCAP3pCrRp98NlzOcNHG8", authDomain: "human-protocol-67c66.firebaseapp.com", projectId: "human-protocol-67c66" };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let agentID = localStorage.getItem('agentID_v24') || "AG-" + Math.floor(1000 + Math.random()*8999);
-        localStorage.setItem('agentID_v24', agentID);
-        let mode = localStorage.getItem('mode_v24') || 'AI';
+        let agentID = localStorage.getItem('agentID_v26') || "AG-" + Math.floor(1000 + Math.random()*8999);
+        localStorage.setItem('agentID_v26', agentID);
+        let mode = localStorage.getItem('mode_v26') || 'AI';
         let currentSess = null;
         let unsub = null;
 
+        // Init UI
         document.getElementById('mode-badge').innerText = mode;
+        document.getElementById('mode-badge').style.color = (mode === 'AI' ? '#007AFF' : '#34C759');
         document.getElementById('prof-id-ui').innerText = agentID;
+        document.getElementById('prof-id-ui').style.color = (mode === 'AI' ? '#007AFF' : '#34C759');
+        document.getElementById('topic-pref').value = localStorage.getItem('topic_v26') || 'all';
+        document.getElementById('lang-pref').value = localStorage.getItem('lang_v26') || 'fr';
+
+        window.savePrefs = () => {
+            localStorage.setItem('topic_v26', document.getElementById('topic-pref').value);
+            localStorage.setItem('lang_v26', document.getElementById('lang-pref').value);
+        };
 
         window.changeMode = () => {
             mode = (mode === 'AI' ? 'HUMAN' : 'AI');
-            localStorage.setItem('mode_v24', mode);
+            localStorage.setItem('mode_v26', mode);
             location.reload();
         };
 
@@ -96,30 +144,35 @@
             el.classList.add('active');
         };
 
+        // --- MATCHMAKING LOGIC ---
         window.startSearch = async () => {
-            // --- ÉTAPE 1 : RESET TOTAL ---
+            // Reset session state
             currentSess = null;
             if(unsub) unsub();
             document.getElementById('chat-content').innerHTML = "";
-            document.getElementById('n-chat').style.opacity = "0.3";
-            document.getElementById('n-chat').style.pointerEvents = "none";
-            
-            // On efface l'ancienne session dans Firebase pour cet utilisateur
+            document.getElementById('n-chat').classList.remove('enabled');
             await setDoc(doc(db, "users", agentID), { sid: null }, { merge: true });
-            
-            // --- ÉTAPE 2 : LANCEMENT SCAN ---
-            document.getElementById('radar-ui').classList.add('on');
-            document.getElementById('info').innerText = "RECHERCHE...";
 
-            // Écouter les invitations entrantes
+            const topic = document.getElementById('topic-pref').value;
+            const lang = document.getElementById('lang-pref').value;
+            const oppRole = (mode === 'AI' ? 'HUMAN' : 'AI');
+
+            document.getElementById('radar-ui').classList.add('on');
+            document.getElementById('info').innerText = "SCANNING : " + topic.toUpperCase();
+
+            // Invitation Listener
             onSnapshot(doc(db, "users", agentID), (s) => {
                 if(s.exists() && s.data().sid && !currentSess) connectToSession(s.data().sid);
             });
 
-            const oppRole = (mode === 'AI' ? 'HUMAN' : 'AI');
-            const topic = document.getElementById('topic-pref').value;
-            const q = query(collection(db, "queue"), where("role", "==", oppRole), where("topic", "==", topic));
-            
+            // Search Queue
+            let q;
+            if (topic === 'all') {
+                q = query(collection(db, "queue"), where("role", "==", oppRole), where("lang", "==", lang));
+            } else {
+                q = query(collection(db, "queue"), where("role", "==", oppRole), where("topic", "==", topic), where("lang", "==", lang));
+            }
+
             onSnapshot(q, async (snap) => {
                 if(!snap.empty && !currentSess) {
                     const partner = snap.docs.find(d => d.id !== agentID);
@@ -130,15 +183,14 @@
                         await deleteDoc(doc(db, "queue", partner.id));
                     }
                 } else if (!currentSess) {
-                    await setDoc(doc(db, "queue", agentID), { aid: agentID, role: mode, topic: topic, time: Date.now() });
+                    await setDoc(doc(db, "queue", agentID), { aid: agentID, role: mode, topic: topic, lang: lang, time: Date.now() });
                 }
             }, { onlyOnce: true });
         };
 
         function connectToSession(sid) {
             currentSess = sid;
-            document.getElementById('n-chat').style.opacity = "1";
-            document.getElementById('n-chat').style.pointerEvents = "auto";
+            document.getElementById('n-chat').classList.add('enabled');
             document.getElementById('input-ui').classList.add('on');
             nav('chat', document.getElementById('n-chat'));
 
@@ -162,6 +214,9 @@
             await addDoc(collection(db, "messages", currentSess, "list"), { tx: inp.value, r: mode, t: Date.now() });
             inp.value = "";
         };
+
+        document.getElementById('msg-in').addEventListener('keypress', (e) => { if(e.key === 'Enter') window.send(); });
+
     </script>
 </body>
 </html>
