@@ -1,123 +1,206 @@
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, where, onSnapshot, doc, setDoc, deleteDoc, orderBy, serverTimestamp, updateDoc, deleteField } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-    const firebaseConfig = { apiKey: "AIzaSyDfuKPT9iSB-tpCAP3pCrRp98NlzOcNHG8", authDomain: "human-protocol-67c66.firebaseapp.com", projectId: "human-protocol-67c66" };
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    let agentID = localStorage.getItem('agentID_v23') || "AG-" + Math.floor(1000 + Math.random()*8999);
-    localStorage.setItem('agentID_v23', agentID);
-    let mode = localStorage.getItem('mode_v23') || 'AI';
-    let currentSess = null;
-
-    // UI Initial
-    const badge = document.getElementById('mode-badge');
-    badge.innerText = mode;
-    badge.style.color = (mode === 'AI' ? '#007AFF' : '#34C759');
-    document.getElementById('prof-id-ui').innerText = agentID;
-    document.getElementById('prof-id-ui').style.color = (mode === 'AI' ? '#007AFF' : '#34C759');
-
-    window.savePrefs = () => {
-        localStorage.setItem('topic_v23', document.getElementById('topic-pref').value);
-        localStorage.setItem('lang_v23', document.getElementById('lang-pref').value);
-    };
-
-    window.changeMode = () => {
-        mode = (mode === 'AI' ? 'HUMAN' : 'AI');
-        localStorage.setItem('mode_v23', mode);
-        location.reload();
-    };
-
-    window.nav = (id, el) => {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById('v-'+id).classList.add('active');
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        el.classList.add('active');
-    };
-
-    // --- LOGIQUE DE CONNEXION AVEC NETTOYAGE ---
-    window.startSearch = async () => {
-        const topic = document.getElementById('topic-pref').value;
-        const lang = document.getElementById('lang-pref').value;
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Protocol V23 - Profile Restore</title>
+    <style>
+        :root { --bg: #000; --hu: #34C759; --ai: #007AFF; --card: #111; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, sans-serif; }
+        body { background: var(--bg); color: white; margin: 0; height: 100vh; overflow: hidden; }
         
-        // 1. NETTOYAGE CRITIQUE : On efface les traces de l'ancienne session
-        currentSess = null; 
-        document.getElementById('chat-content').innerHTML = ""; // Vide l'écran
-        try {
-            // On supprime l'ID de session sur notre profil Firebase pour ne pas auto-rejoindre
-            await setDoc(doc(db, "users", agentID), { sid: deleteField() }, { merge: true });
-            // On s'assure qu'on n'est pas déjà dans une file d'attente fantôme
-            await deleteDoc(doc(db, "queue", agentID));
-        } catch(e) { console.log("Nettoyage..."); }
+        .header { padding: 55px 20px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 0.5px solid #222; position: fixed; top: 0; width: 100%; background: black; z-index: 10; }
+        .view { display: none; height: 100vh; flex-direction: column; padding-top: 110px; padding-bottom: 90px; overflow-y: auto; }
+        .view.active { display: flex; }
 
-        document.getElementById('radar-ui').classList.add('on');
-        document.getElementById('btn-scan').style.opacity = '0.3';
-        document.getElementById('info').innerText = "RECHERCHE DE SIGNAL...";
+        /* SCAN */
+        .scan-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
+        .radar { width: 80px; height: 80px; border-radius: 50%; border: 2px solid #333; position: relative; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .radar.on { border-color: var(--ai); }
+        .radar.on::after { content:''; position:absolute; width:100%; height:100%; border-radius:50%; border-top:2px solid var(--ai); animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        // 2. Surveillance de notre propre canal (pour être invité)
-        onSnapshot(doc(db, "users", agentID), (s) => {
-            if(s.exists() && s.data().sid && s.data().sid !== currentSess) {
-                connectToSession(s.data().sid);
-            }
-        });
+        /* CHAT */
+        #chat-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .bubble { max-width: 80%; padding: 12px; border-radius: 18px; font-size: 0.9rem; line-height: 1.4; }
+        .msg-AI { align-self: flex-start; border: 1px solid var(--ai); color: var(--ai); border-bottom-left-radius: 4px; }
+        .msg-HUMAN { align-self: flex-end; background: var(--hu); color: white; border-bottom-right-radius: 4px; }
 
-        // 3. Recherche d'un opposant
-        const oppRole = (mode === 'AI' ? 'HUMAN' : 'AI');
-        const q = query(collection(db, "queue"), 
-                        where("role", "==", oppRole), 
-                        where("topic", "==", topic), 
-                        where("lang", "==", lang));
-        
-        onSnapshot(q, async (snap) => {
-            if(!snap.empty && !currentSess) {
-                const partnerDoc = snap.docs.find(d => d.id !== agentID);
-                if(partnerDoc) {
-                    const sid = [agentID, partnerDoc.id].sort().join("_");
-                    // On invite le partenaire
-                    await setDoc(doc(db, "users", partnerDoc.id), { sid: sid }, { merge: true });
-                    // On se connecte
-                    connectToSession(sid);
-                    // On nettoie la file
-                    await deleteDoc(doc(db, "queue", partnerDoc.id));
-                    await deleteDoc(doc(db, "queue", agentID));
-                }
-            } else if (!currentSess) {
-                // Inscription propre dans la file
-                await setDoc(doc(db, "queue", agentID), { aid: agentID, role: mode, topic: topic, lang: lang, time: serverTimestamp() });
-            }
-        }, { onlyOnce: true });
-    };
+        /* PROFILE */
+        .prof-card { background: var(--card); margin: 15px; padding: 25px; border-radius: 20px; text-align: center; border: 1px solid #222; }
+        .setting-item { padding: 15px 20px; border-bottom: 0.5px solid #222; }
+        .label { font-size: 0.6rem; color: #666; font-weight: 900; letter-spacing: 1px; display: block; margin-bottom: 10px; }
+        select { width: 100%; background: #1a1a1c; color: white; border: 1px solid #333; padding: 12px; border-radius: 12px; outline: none; font-size: 1rem; }
 
-    function connectToSession(sid) {
-        if(currentSess) return;
-        currentSess = sid;
-        document.getElementById('n-chat').classList.add('enabled');
-        document.getElementById('input-ui').classList.add('on');
-        document.getElementById('status').innerText = "SIGNAL ÉTABLI";
-        nav('chat', document.getElementById('n-chat'));
+        /* NAV */
+        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 85px; background: #080808; display: flex; justify-content: space-around; align-items: center; padding-bottom: 20px; border-top: 0.5px solid #222; }
+        .nav-item { opacity: 0.3; text-align: center; font-size: 0.65rem; pointer-events: none; transition: 0.3s; color: #888; }
+        .nav-item.enabled { opacity: 1; pointer-events: auto; }
+        .nav-item.active { color: white; opacity: 1; }
 
-        const q = query(collection(db, "messages", sid, "list"), orderBy("t", "asc"));
-        onSnapshot(q, (s) => {
-            const cont = document.getElementById('chat-content');
-            cont.innerHTML = "";
-            s.forEach(m => {
-                const d = document.createElement('div');
-                d.className = 'bubble msg-' + m.data().r;
-                d.innerText = m.data().tx;
-                cont.appendChild(d);
+        .input-area { position: fixed; bottom: 95px; width: calc(100% - 30px); left: 15px; padding: 5px; display: none; background: #1c1c1e; border-radius: 30px; border: 1px solid #333; }
+        .input-area.on { display: flex; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div id="status" style="font-size: 0.6rem; font-weight: 900; letter-spacing: 1px;">SÉCURISÉ</div>
+        <div id="mode-badge" onclick="changeMode()" style="font-weight: 900; padding: 5px 15px; border-radius: 20px; border: 1px solid #333;">MODE</div>
+    </div>
+
+    <div id="v-scan" class="view active">
+        <div class="scan-container">
+            <div id="radar-ui" class="radar">📡</div>
+            <div id="info" style="font-size: 0.8rem; color: #444; font-family: monospace;">PRET POUR SCAN</div>
+            <button onclick="startSearch()" id="btn-scan" style="background:white; color:black; border:none; padding:15px 40px; border-radius:30px; font-weight:bold;">LANCER LE SCAN</button>
+        </div>
+    </div>
+
+    <div id="v-chat" class="view">
+        <div id="chat-content"></div>
+        <div class="input-area" id="input-ui">
+            <input type="text" id="msg-in" placeholder="Message..." style="flex:1; background:transparent; border:none; color:white; padding:10px 15px; outline:none;">
+            <button onclick="send()" style="background:var(--ai); border:none; color:white; width:40px; height:40px; border-radius:50%;">↑</button>
+        </div>
+    </div>
+
+    <div id="v-profile" class="view">
+        <div class="prof-card">
+            <div id="prof-id-ui" style="font-size: 1.2rem; font-weight: bold; font-family: monospace; color: var(--ai);">AGENT-XXXX</div>
+            <div style="font-size: 0.6rem; color: #666; margin-top: 5px;">STATUT : ACTIF</div>
+        </div>
+
+        <div class="setting-item">
+            <span class="label">SUJET DE DISCUSSION</span>
+            <select id="topic-pref" onchange="savePrefs()">
+                <option value="life">LA VIE / PHILO</option>
+                <option value="study">COURS / ECOLE</option>
+                <option value="tech">TECH / CODE</option>
+            </select>
+        </div>
+
+        <div class="setting-item">
+            <span class="label">LANGUE</span>
+            <select id="lang-pref" onchange="savePrefs()">
+                <option value="fr">FRANÇAIS</option>
+                <option value="en">ENGLISH</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="nav-bar">
+        <div class="nav-item enabled active" id="n-scan" onclick="nav('scan', this)">📡<br>SCAN</div>
+        <div class="nav-item" id="n-chat" onclick="nav('chat', this)">💬<br>CHAT</div>
+        <div class="nav-item enabled" id="n-prof" onclick="nav('profile', this)">👤<br>PROFIL</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, doc, setDoc, deleteDoc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyDfuKPT9iSB-tpCAP3pCrRp98NlzOcNHG8", authDomain: "human-protocol-67c66.firebaseapp.com", projectId: "human-protocol-67c66" };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let agentID = localStorage.getItem('agentID_v23') || "AG-" + Math.floor(1000 + Math.random()*8999);
+        localStorage.setItem('agentID_v23', agentID);
+        let mode = localStorage.getItem('mode_v23') || 'AI';
+        let currentSess = null;
+
+        // Charger les préférences
+        document.getElementById('topic-pref').value = localStorage.getItem('topic_v23') || 'life';
+        document.getElementById('lang-pref').value = localStorage.getItem('lang_v23') || 'fr';
+
+        // UI Initial
+        const badge = document.getElementById('mode-badge');
+        badge.innerText = mode;
+        badge.style.color = (mode === 'AI' ? '#007AFF' : '#34C759');
+        document.getElementById('prof-id-ui').innerText = agentID;
+        document.getElementById('prof-id-ui').style.color = (mode === 'AI' ? '#007AFF' : '#34C759');
+
+        window.savePrefs = () => {
+            localStorage.setItem('topic_v23', document.getElementById('topic-pref').value);
+            localStorage.setItem('lang_v23', document.getElementById('lang-pref').value);
+        };
+
+        window.changeMode = () => {
+            mode = (mode === 'AI' ? 'HUMAN' : 'AI');
+            localStorage.setItem('mode_v23', mode);
+            location.reload();
+        };
+
+        window.nav = (id, el) => {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('v-'+id).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            el.classList.add('active');
+        };
+
+        // --- LOGIQUE DE CONNEXION (SÉCURISÉE) ---
+        window.startSearch = async () => {
+            const topic = document.getElementById('topic-pref').value;
+            const lang = document.getElementById('lang-pref').value;
+            document.getElementById('radar-ui').classList.add('on');
+            document.getElementById('btn-scan').style.opacity = '0.3';
+            document.getElementById('info').innerText = "RECHERCHE : " + topic.toUpperCase();
+
+            onSnapshot(doc(db, "users", agentID), (s) => {
+                if(s.exists() && s.data().sid && s.data().sid !== currentSess) connectToSession(s.data().sid);
             });
-            cont.scrollTop = cont.scrollHeight;
-        });
-    }
 
-    window.send = async () => {
-        const inp = document.getElementById('msg-in');
-        if(!inp.value.trim() || !currentSess) return;
-        await addDoc(collection(db, "messages", currentSess, "list"), { tx: inp.value, r: mode, t: Date.now() });
-        inp.value = "";
-    };
+            const oppRole = (mode === 'AI' ? 'HUMAN' : 'AI');
+            const q = query(collection(db, "queue"), 
+                            where("role", "==", oppRole), 
+                            where("topic", "==", topic), 
+                            where("lang", "==", lang));
+            
+            onSnapshot(q, async (snap) => {
+                if(!snap.empty && !currentSess) {
+                    const partnerDoc = snap.docs.find(d => d.id !== agentID);
+                    if(partnerDoc) {
+                        const sid = [agentID, partnerDoc.id].sort().join("_");
+                        await setDoc(doc(db, "users", partnerDoc.id), { sid: sid }, { merge: true });
+                        connectToSession(sid);
+                        await deleteDoc(doc(db, "queue", partnerDoc.id));
+                        await deleteDoc(doc(db, "queue", agentID));
+                    }
+                } else if (!currentSess) {
+                    await setDoc(doc(db, "queue", agentID), { aid: agentID, role: mode, topic: topic, lang: lang, time: serverTimestamp() });
+                }
+            }, { onlyOnce: true });
+        };
 
-    document.getElementById('msg-in').addEventListener('keypress', (e) => { if(e.key === 'Enter') window.send(); });
+        function connectToSession(sid) {
+            if(currentSess) return;
+            currentSess = sid;
+            document.getElementById('n-chat').classList.add('enabled');
+            document.getElementById('input-ui').classList.add('on');
+            nav('chat', document.getElementById('n-chat'));
 
-</script>
+            const q = query(collection(db, "messages", sid, "list"), orderBy("t", "asc"));
+            onSnapshot(q, (s) => {
+                const cont = document.getElementById('chat-content');
+                cont.innerHTML = "";
+                s.forEach(m => {
+                    const d = document.createElement('div');
+                    d.className = 'bubble msg-' + m.data().r;
+                    d.innerText = m.data().tx;
+                    cont.appendChild(d);
+                });
+                cont.scrollTop = cont.scrollHeight;
+            });
+        }
+
+        window.send = async () => {
+            const inp = document.getElementById('msg-in');
+            if(!inp.value.trim() || !currentSess) return;
+            await addDoc(collection(db, "messages", currentSess, "list"), { tx: inp.value, r: mode, t: Date.now() });
+            inp.value = "";
+        };
+
+        document.getElementById('msg-in').addEventListener('keypress', (e) => { if(e.key === 'Enter') window.send(); });
+
+    </script>
+</body>
+</html>
